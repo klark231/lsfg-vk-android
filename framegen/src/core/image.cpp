@@ -31,8 +31,10 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
         .usage = usage,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
     VkImage imageHandle{};
     auto res = vkCreateImage(device.handle(), &desc, nullptr, &imageHandle);
@@ -144,8 +146,10 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
         .usage = usage,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
     VkImage imageHandle{};
     auto res = vkCreateImage(device.handle(), &desc, nullptr, &imageHandle);
@@ -282,8 +286,10 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
         .usage = usage,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
     VkImage imageHandle{};
