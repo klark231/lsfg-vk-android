@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        abi: [arm64-v8a, x86_64]
+        abi: [arm64-v8a]   # Restrict to arm64 only for A8xx
 
     steps:
       - name: Checkout repository
@@ -33,23 +33,22 @@ jobs:
           cmake -B build-${{ matrix.abi }} \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.abi }} \
-            -DANDROID_PLATFORM=android-28 \
+            -DANDROID_PLATFORM=android-24 \   # Lower API for A8xx stability
             -DLSFGVK_ANDROID_WINE=ON \
             -DVOLK_STATIC_DEFINES=VK_USE_PLATFORM_ANDROID_KHR \
-            "-DCMAKE_CXX_FLAGS=-DVK_USE_PLATFORM_ANDROID_KHR" \
-            "-DCMAKE_C_FLAGS=-DVK_USE_PLATFORM_ANDROID_KHR" \
+            "-DCMAKE_CXX_FLAGS=-DVK_USE_PLATFORM_ANDROID_KHR -DVK_VERSION=1.3" \
+            "-DCMAKE_C_FLAGS=-DVK_USE_PLATFORM_ANDROID_KHR -DVK_VERSION=1.3" \
             -DCMAKE_BUILD_TYPE=Release \
             -G Ninja
-
       - name: Build (${{ matrix.abi }})
         run: ninja -C build-${{ matrix.abi }}
 
       - name: Strip (${{ matrix.abi }})
         run: |
           $ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
-            --strip-unneeded \
             -o build-${{ matrix.abi }}/liblsfg-vk-${{ matrix.abi }}.so \
             build-${{ matrix.abi }}/liblsfg-vk.so
+            # Removed --strip-unneeded to keep more symbols for A8xx drivers
 
       - name: Upload artifact (${{ matrix.abi }})
         uses: actions/upload-artifact@v4
