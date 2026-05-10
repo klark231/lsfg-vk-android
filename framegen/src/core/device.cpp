@@ -120,11 +120,32 @@ Device::Device(const Instance& instance, uint64_t deviceUUID) {
     std::vector<VkQueueFamilyProperties> queueFamilies(familyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(*physicalDevice, &familyCount, queueFamilies.data());
 
+    std::optional<uint32_t> dedicatedCompute;
+    std::optional<uint32_t> sharedCompute;
     std::optional<uint32_t> computeFamilyIdx;
+
     for (uint32_t i = 0; i < familyCount; ++i) {
-        if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
-            computeFamilyIdx = i;
+        const auto& q = queueFamilies[i];
+
+        const bool compute =
+            q.queueFlags & VK_QUEUE_COMPUTE_BIT;
+
+        const bool graphics =
+            q.queueFlags & VK_QUEUE_GRAPHICS_BIT;
+
+        if (compute && !graphics) {
+            dedicatedCompute = i;
+            break;
+        }
+
+        if (compute)
+            sharedCompute = i;
     }
+
+    computeFamilyIdx =
+        dedicatedCompute.has_value()
+            ? dedicatedCompute
+            : sharedCompute;
     if (!computeFamilyIdx)
         throw LSFG::vulkan_error(VK_ERROR_INITIALIZATION_FAILED, "No compute queue family found");
 
