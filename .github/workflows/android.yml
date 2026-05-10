@@ -33,7 +33,7 @@ jobs:
           cmake -B build-${{ matrix.abi }} \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.abi }} \
-            -DANDROID_PLATFORM=android-24 \   # Lower API for A8xx stability
+            -DANDROID_PLATFORM=android-24 \
             -DLSFGVK_ANDROID_WINE=ON \
             -DVOLK_STATIC_DEFINES=VK_USE_PLATFORM_ANDROID_KHR \
             "-DCMAKE_CXX_FLAGS=-DVK_USE_PLATFORM_ANDROID_KHR -DVK_VERSION=1.3" \
