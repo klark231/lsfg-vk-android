@@ -40,7 +40,7 @@ using namespace LSFG::Core;
 
 const std::vector<const char*> requiredExtensions = {
 #ifndef __ANDROID__
-    "VK_KHR_external_memory_fd",
+    "VK_KHR_external_memory",
     "VK_KHR_external_memory_fd",
     "VK_KHR_external_semaphore_fd",
     "VK_EXT_external_memory_dma_buf"
@@ -113,6 +113,25 @@ Device::Device(const Instance& instance, uint64_t deviceUUID) {
     const bool api12 = apiVersion >= VK_API_VERSION_1_2;
     const bool api13 = apiVersion >= VK_API_VERSION_1_3;
 
+VkPhysicalDeviceDriverProperties driverProps{
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES,
+};
+
+VkPhysicalDeviceProperties2 props2{
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+    .pNext = &driverProps,
+};
+
+vkGetPhysicalDeviceProperties2(*physicalDevice, &props2);
+
+const bool isTurnip =
+    std::strstr(driverProps.driverName, "Turnip") != nullptr;
+
+LSFG_FRAMEGEN_LOGI(
+    "Driver detected: %s (Turnip=%d)",
+    driverProps.driverName,
+    (int)isTurnip);    
+
     // find queue family indices
     uint32_t familyCount{};
     vkGetPhysicalDeviceQueueFamilyProperties(*physicalDevice, &familyCount, nullptr);
@@ -120,11 +139,39 @@ Device::Device(const Instance& instance, uint64_t deviceUUID) {
     std::vector<VkQueueFamilyProperties> queueFamilies(familyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(*physicalDevice, &familyCount, queueFamilies.data());
 
-    std::optional<uint32_t> computeFamilyIdx;
-    for (uint32_t i = 0; i < familyCount; ++i) {
-        if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
-            computeFamilyIdx = i;
+std::optional<uint32_t> computeFamilyIdx;
+
+// Turnip/Adreno optimization:
+// Prefer dedicated compute queue first.
+for (uint32_t i = 0; i < familyCount; ++i) {
+    const auto flags = queueFamilies[i].queueFlags;
+
+    if ((flags & VK_QUEUE_COMPUTE_BIT) &&
+        !(flags & VK_QUEUE_GRAPHICS_BIT)) {
+        computeFamilyIdx = i;
+
+        LSFG_FRAMEGEN_LOGI(
+            "Using dedicated compute queue family: %u",
+            i);
+
+        break;
     }
+}
+
+// Fallback to any compute queue.
+if (!computeFamilyIdx) {
+    for (uint32_t i = 0; i < familyCount; ++i) {
+        if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            computeFamilyIdx = i;
+
+            LSFG_FRAMEGEN_LOGI(
+                "Using shared compute queue family: %u",
+                i);
+
+            break;
+        }
+    }
+}
     if (!computeFamilyIdx)
         throw LSFG::vulkan_error(VK_ERROR_INITIALIZATION_FAILED, "No compute queue family found");
 
@@ -331,7 +378,7 @@ Device::Device(const Instance& instance, uint64_t deviceUUID) {
     // ("vulkanMemoryModel(core)=0") points the field reporter at the cause.
 
     // create logical device
-    const float queuePriority{1.0F}; // highest priority
+    const float queuePriority{0.5F}; // highest priority
 
     // Feature chain. The shape depends on the device's apiVersion:
     //   1.3+: chain VkPhysicalDeviceVulkan1{2,3}Features (these structs are only
@@ -375,18 +422,35 @@ Device::Device(const Instance& instance, uint64_t deviceUUID) {
         // first presentContext → DEVICE_LOST. The culprit was the unconditional
         // vulkanMemoryModel = VK_TRUE; the device does not advertise it but
         // the driver took the request anyway.
-        features13 = VkPhysicalDeviceVulkan13Features{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-            .pNext = hasRobustness2 ? &robustness2 : nullptr,
-            .synchronization2 = hasSync2Core ? VK_TRUE : VK_FALSE,
-        };
-        features12 = VkPhysicalDeviceVulkan12Features{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-            .pNext = &features13,
-            .shaderFloat16 = hasFloat16 ? VK_TRUE : VK_FALSE,
-            .timelineSemaphore = hasTimelineSemCore ? VK_TRUE : VK_FALSE,
-            .vulkanMemoryModel = hasVulkanMemoryModelCore ? VK_TRUE : VK_FALSE,
-        };
+features13 = VkPhysicalDeviceVulkan13Features{
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+    .pNext = hasRobustness2 ? &robustness2 : nullptr,
+
+    // sync2 is faster on Turnip.
+    .synchronization2 =
+        (hasSync2Core && isTurnip)
+            ? VK_TRUE
+            : VK_FALSE,
+};
+features12 = VkPhysicalDeviceVulkan12Features{
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+    .pNext = &features13,
+
+    // Important for LSFG FP16 shaders.
+    .shaderFloat16 =
+        hasFloat16 ? VK_TRUE : VK_FALSE,
+
+    .timelineSemaphore =
+        hasTimelineSemCore ? VK_TRUE : VK_FALSE,
+
+    // Turnip performs better WITHOUT Vulkan memory model.
+    .vulkanMemoryModel = VK_FALSE,
+
+    // Adreno/Turnip optimizations.
+    .bufferDeviceAddress = VK_TRUE,
+    .descriptorIndexing = VK_TRUE,
+    .hostQueryReset = VK_TRUE,
+};
         featureChainHead = &features12;
     } else {
         // Walk the chain bottom-up so we can stitch pNext links cleanly.
@@ -432,7 +496,8 @@ Device::Device(const Instance& instance, uint64_t deviceUUID) {
             memModelFeat = VkPhysicalDeviceVulkanMemoryModelFeaturesKHR{
                 .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES_KHR,
                 .pNext = next,
-                .vulkanMemoryModel = VK_TRUE,
+.vulkanMemoryModel =
+    isTurnip ? VK_FALSE : VK_TRUE,
             };
             next = &memModelFeat;
         }
@@ -447,15 +512,18 @@ Device::Device(const Instance& instance, uint64_t deviceUUID) {
         }
         featureChainHead = next;
     }
-    LSFG_FRAMEGEN_LOGI(
-        "Device path: apiVersion=%u.%u sync2=%s timeline_via_ext=%d "
-        "memModel_via_ext=%d fp16_via_ext=%d robustness2=%d",
-        VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion),
-        api13 ? "core1.3" : (hasSync2Ext ? "ext" : "compat-shim"),
-        (int)(!api12 && hasTimelineSemExt),
-        (int)(!api12 && hasVulkanMemoryModelExt),
-        (int)(!api12 && hasFloat16ExtName),
-        (int)hasRobustness2);
+LSFG_FRAMEGEN_LOGI(
+    "Device path: apiVersion=%u.%u sync2=%s "
+    "timeline_via_ext=%d memModel_via_ext=%d "
+    "fp16_via_ext=%d robustness2=%d turnip=%d",
+    VK_VERSION_MAJOR(apiVersion),
+    VK_VERSION_MINOR(apiVersion),
+    api13 ? "core1.3" : (hasSync2Ext ? "ext" : "compat-shim"),
+    (int)(!api12 && hasTimelineSemExt),
+    (int)(!api12 && hasVulkanMemoryModelExt),
+    (int)(!api12 && hasFloat16ExtName),
+    (int)hasRobustness2,
+    (int)isTurnip);
 
     // Use VkPhysicalDeviceFeatures2 in pNext (mutually exclusive with
     // pEnabledFeatures per spec) so we can chain the core features alongside
