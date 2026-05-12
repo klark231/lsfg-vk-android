@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
+#include <algorithm>
 
 using namespace LSFG::Core;
 
@@ -72,7 +73,7 @@ Semaphore::Semaphore(const Core::Device& device, int fd) {
         .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
         .pNext = nullptr,
         .semaphore = semaphoreHandle,
-        .flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT,
+        .flags = 0,
         .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
         .fd = fd // The driver takes ownership and will close(fd)
     };
@@ -140,9 +141,31 @@ bool Semaphore::wait(const Core::Device& device, uint64_t value, uint64_t timeou
         .pSemaphores = &sem,
         .pValues = &value
     };
-    auto res = vkWaitSemaphores(device.handle(), &waitInfo, timeout);
-    if (res != VK_SUCCESS && res != VK_TIMEOUT)
-        throw LSFG::vulkan_error(res, "Unable to wait for timeline semaphore");
+constexpr uint64_t TURNIP_WAIT_SLICE_NS = 1000000ULL; // 1ms
 
-    return res == VK_SUCCESS;
+uint64_t remaining = timeout;
+VkResult res = VK_TIMEOUT;
+
+while (remaining > 0) {
+    const uint64_t slice =
+        std::min(remaining, TURNIP_WAIT_SLICE_NS);
+
+    res = vkWaitSemaphores(
+        device.handle(),
+        &waitInfo,
+        slice
+    );
+
+    if (res == VK_SUCCESS)
+        break;
+
+    if (res != VK_TIMEOUT)
+        throw LSFG::vulkan_error(
+            res,
+            "Unable to wait for timeline semaphore");
+
+    remaining -= slice;
+}
+
+return res == VK_SUCCESS;
 }
