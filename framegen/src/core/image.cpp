@@ -21,6 +21,7 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
     // create image
     const VkImageCreateInfo desc{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = format,
         .extent = {
@@ -31,7 +32,11 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
-        .usage = usage,
+        .usage =
+    usage |
+    VK_IMAGE_USAGE_STORAGE_BIT |
+    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
     VkImage imageHandle{};
@@ -100,7 +105,8 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         throw LSFG::vulkan_error(res, "Failed to create image view");
 
     // store objects in shared ptr
-    this->layout = std::make_shared<VkImageLayout>(VK_IMAGE_LAYOUT_UNDEFINED);
+this->layout = std::make_shared<VkImageLayout>(
+    VK_IMAGE_LAYOUT_GENERAL);
     this->image = std::shared_ptr<VkImage>(
         new VkImage(imageHandle),
         [dev = device.handle()](VkImage* img) {
@@ -133,6 +139,7 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
     };
     const VkImageCreateInfo desc{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
         .pNext = &externalInfo,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = format,
@@ -144,7 +151,11 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
-        .usage = usage,
+        .usage =
+    usage |
+    VK_IMAGE_USAGE_STORAGE_BIT |
+    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
     VkImage imageHandle{};
@@ -224,7 +235,8 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         throw LSFG::vulkan_error(res, "Failed to create image view");
 
     // store objects in shared ptr
-    this->layout = std::make_shared<VkImageLayout>(VK_IMAGE_LAYOUT_UNDEFINED);
+this->layout = std::make_shared<VkImageLayout>(
+    VK_IMAGE_LAYOUT_GENERAL);
     this->image = std::shared_ptr<VkImage>(
         new VkImage(imageHandle),
         [dev = device.handle()](VkImage* img) {
@@ -274,6 +286,7 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
     };
     const VkImageCreateInfo desc{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
         .pNext = &externalInfo,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = format,
@@ -282,7 +295,11 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = usage,
+        .usage =
+    usage |
+    VK_IMAGE_USAGE_STORAGE_BIT |
+    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
