@@ -56,10 +56,11 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
 #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
     std::optional<uint32_t> memType{};
     for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
-        if ((memReqs.memoryTypeBits & (1 << i)) && // NOLINTBEGIN
-            (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+        if (memReqs.memoryTypeBits & (1u << i)) {
             memType.emplace(i);
             break;
+        }
+}
         } // NOLINTEND
     }
     if (!memType.has_value())
