@@ -1,4 +1,3 @@
-#define VK_USE_PLATFORM_ANDROID_KHR
 #include <volk.h>
 #include <vulkan/vulkan_core.h>
 
@@ -56,9 +55,19 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
 #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
     std::optional<uint32_t> memType{};
     for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
-        if (memReqs.memoryTypeBits & (1u << i)) {
+        if ((memReqs.memoryTypeBits & (1u << i)) &&
+            (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
             memType.emplace(i);
             break;
+        }
+    }
+
+    if (!memType.has_value()) {
+        for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
+            if (memReqs.memoryTypeBits & (1u << i)) {
+                memType.emplace(i);
+                break;
+            }
         }
     }
     if (!memType.has_value())
@@ -293,7 +302,7 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
     VkImage imageHandle{};
-    res = vkCreateImage(device.handle(), &desc, nullptr, &imageHandle);
+    auto res = vkCreateImage(device.handle(), &desc, nullptr, &imageHandle);
 
     VkMemoryRequirements memReqs{};
     vkGetImageMemoryRequirements(device.handle(), imageHandle, &memReqs);
