@@ -270,17 +270,6 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
     if (ahb == nullptr)
         throw LSFG::vulkan_error(VK_ERROR_INITIALIZATION_FAILED, "AHB is null");
 
-    VkAndroidHardwareBufferFormatPropertiesANDROID fmtProps{
-        .sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID,
-    };
-    VkAndroidHardwareBufferPropertiesANDROID ahbProps{
-        .sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID,
-        .pNext = &fmtProps,
-    };
-    auto res = vkGetAndroidHardwareBufferPropertiesANDROID(device.handle(), ahb, &ahbProps);
-    if (res != VK_SUCCESS)
-        throw LSFG::vulkan_error(res, "vkGetAndroidHardwareBufferPropertiesANDROID failed");
-
     const VkExternalMemoryImageCreateInfo externalInfo{
         .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
         .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID,
@@ -306,6 +295,10 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
     };
     VkImage imageHandle{};
     res = vkCreateImage(device.handle(), &desc, nullptr, &imageHandle);
+
+    VkMemoryRequirements memReqs{};
+    vkGetImageMemoryRequirements(device.handle(), imageHandle, &memReqs);
+                
     if (res != VK_SUCCESS || imageHandle == VK_NULL_HANDLE)
         throw LSFG::vulkan_error(res, "Failed to create Vulkan image (AHB)");
 
@@ -313,7 +306,7 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
     vkGetPhysicalDeviceMemoryProperties(device.getPhysicalDevice(), &memProps);
     std::optional<uint32_t> memType{};
     for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
-        if (ahbProps.memoryTypeBits & (1u << i)) { memType.emplace(i); break; }
+        if (memReqs.memoryTypeBits & (1u << i))
     }
     if (!memType.has_value()) {
         vkDestroyImage(device.handle(), imageHandle, nullptr);
@@ -332,7 +325,7 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
     const VkMemoryAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = &importInfo,
-        .allocationSize = ahbProps.allocationSize,
+        .allocationSize = memReqs.size,
         .memoryTypeIndex = memType.value(),
     };
     VkDeviceMemory memoryHandle{};
