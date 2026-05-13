@@ -60,8 +60,6 @@ Image::Image(const Core::Device& device, VkExtent2D extent, VkFormat format,
             memType.emplace(i);
             break;
         }
-}
-        } // NOLINTEND
     }
     if (!memType.has_value())
         throw LSFG::vulkan_error(VK_ERROR_UNKNOWN, "Unable to find memory type for image");
