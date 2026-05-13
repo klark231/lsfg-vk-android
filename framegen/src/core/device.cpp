@@ -556,6 +556,18 @@ LSFG_FRAMEGEN_LOGI(
 
     volkLoadDevice(deviceHandle);
 
+    vkGetAndroidHardwareBufferPropertiesANDROID =
+        reinterpret_cast<PFN_vkGetAndroidHardwareBufferPropertiesANDROID>(
+            vkGetDeviceProcAddr(
+                deviceHandle,
+                "vkGetAndroidHardwareBufferPropertiesANDROID"));
+
+    vkGetMemoryAndroidHardwareBufferANDROID =
+        reinterpret_cast<PFN_vkGetMemoryAndroidHardwareBufferANDROID>(
+            vkGetDeviceProcAddr(
+                deviceHandle,
+                "vkGetMemoryAndroidHardwareBufferANDROID"));
+
     // Wire up the global vkCmdPipelineBarrier2 symbol so the BarrierBuilder
     // / external-barrier paths can call through it. Three cases:
     //
