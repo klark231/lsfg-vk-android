@@ -45,9 +45,7 @@ void CommandBuffer::begin() {
 
     const VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags =
-            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT |
-            VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
     };
     auto res = vkBeginCommandBuffer(*this->commandBuffer, &beginInfo);
     if (res != VK_SUCCESS)
