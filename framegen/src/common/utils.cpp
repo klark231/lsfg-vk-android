@@ -51,7 +51,7 @@ VkPipelineStageFlags sync2_to_sync1_stages(VkPipelineStageFlags2 mask) {
     }
     if (out == 0 && mask != 0) {
         // Unknown high-bit-only mask. Be safe.
-        out = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        out = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
     }
     return out;
 }
@@ -148,9 +148,12 @@ void Utils::cmdPipelineBarrier2(VkCommandBuffer cb, const VkDependencyInfo* dep)
     // Empty stage masks would be a spec violation (must be at least
     // TOP_OF_PIPE / BOTTOM_OF_PIPE). Guarantee a valid call by defaulting to
     // ALL_COMMANDS — over-conservative but always correct.
-    if (srcStage == 0) srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-    if (dstStage == 0) dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    if (srcStage == 0)
+        srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 
+    if (dstStage == 0)
+        dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    
     vkCmdPipelineBarrier(cb,
         srcStage, dstStage,
         0,
