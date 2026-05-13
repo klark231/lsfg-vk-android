@@ -45,7 +45,9 @@ void CommandBuffer::begin() {
 
     const VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+        .flags =
+            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT |
+            VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT
     };
     auto res = vkBeginCommandBuffer(*this->commandBuffer, &beginInfo);
     if (res != VK_SUCCESS)
@@ -80,8 +82,10 @@ void CommandBuffer::submit(VkQueue queue, std::optional<Fence> fence,
     if (*this->state != CommandBufferState::Full)
         throw std::logic_error("Command buffer is not in Full state");
 
-    const std::vector<VkPipelineStageFlags> waitStages(waitSemaphores.size(),
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    const std::vector<VkPipelineStageFlags> waitStages(
+        waitSemaphores.size(),
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    
     VkTimelineSemaphoreSubmitInfo timelineInfo{
         .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
     };
