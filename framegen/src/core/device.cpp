@@ -1,3 +1,4 @@
+#define VK_USE_PLATFORM_ANDROID_KHR
 #include <volk.h>
 #include <vulkan/vulkan_core.h>
 
